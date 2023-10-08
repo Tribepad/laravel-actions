@@ -7,8 +7,6 @@ use Illuminate\Queue\SerializesModels as BaseSerializesModels;
 trait SerializesModels
 {
     use BaseSerializesModels {
-        __sleep as protected sleepFromBaseSerializesModels;
-        __wakeup as protected wakeupFromBaseSerializesModels;
         __serialize as protected serializeFromBaseSerializesModels;
         __unserialize as protected unserializeFromBaseSerializesModels;
     }
@@ -53,5 +51,39 @@ trait SerializesModels
         array_walk($this->attributes, function (&$value) {
             $value = $this->getRestoredPropertyValue($value);
         });
+    }
+
+        /**
+     * @return array
+     */
+    protected function sleepFromBaseSerializesModels()
+    {
+        $properties = (new ReflectionClass($this))->getProperties();
+
+        foreach ($properties as $property) {
+            $property->setValue($this, $this->getSerializedPropertyValue(
+                $this->getPropertyValue($property)
+            ));
+        }
+
+        return array_values(array_filter(array_map(function ($p) {
+            return $p->isStatic() ? null : $p->getName();
+        }, $properties)));
+    }
+
+    /**
+     * @return void
+     */
+    protected function wakeupFromBaseSerializesModels()
+    {
+        foreach ((new ReflectionClass($this))->getProperties() as $property) {
+            if ($property->isStatic()) {
+                continue;
+            }
+
+            $property->setValue($this, $this->getRestoredPropertyValue(
+                $this->getPropertyValue($property)
+            ));
+        }
     }
 }
